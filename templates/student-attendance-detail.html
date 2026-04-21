@@ -1,0 +1,56 @@
+{% extends 'base2.html' %}
+{% load static %}
+{% block content %}
+<style>
+  .status-present {
+    background: #dcfce7;
+    color: #16a34a;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  .status-absent {
+    background: #fee2e2;
+    color: #dc2626;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  .attendance-table th {
+    background: #f8f9fa;
+    color: #495057;
+    font-weight: 600;
+    border-bottom: 2px solid #e5e7eb;
+  }
+</style>
+
+{% for attendance in attendances %}
+<tr class="attendance-row">
+  <td class="fw-semibold">{{ attendance.date|date:"d M, Y" }}</td>
+  <td class="text-muted">{{ attendance.date|date:"l" }}</td>
+  <td>
+    {% if attendance.status == "Present" %}
+    <span class="status-present"><i class="bi bi-check-circle me-1"></i>Present</span>
+    {% else %}
+    <span class="status-absent"><i class="bi bi-x-circle me-1"></i>Absent</span>
+    {% endif %}
+  </td>
+  <td>
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+        Change
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="#" onclick="markAttendance('{{ attendance.date|date:"Y-m-d" }}', 'Present')">Mark Present</a></li>
+        <li><a class="dropdown-item" href="#" onclick="markAttendance('{{ attendance.date|date:"Y-m-d" }}', 'Absent')">Mark Absent</a></li>
+      </ul>
+    </div>
+  </td>
+</tr>
+{% endfor %}
+
+<span id="presentCount" style="display:none">{{ present_count }}</span>
+<span id="absentCount" style="display:none">{{ absent_count }}</span>
+<span id="totalDays" style="display:none">{{ total_days }}</span>
+<span id="attendancePercent" style="display:none">{{ attendance_percent }}%</span>
+{% endblock %}
