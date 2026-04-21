@@ -64,10 +64,24 @@
       border-radius: 10px;
       padding: 8px 16px;
       background: white;
+      color: #111827;
     }
     
     .btn-outline:hover {
       background: #f8f9fa;
+      color: #111827;
+      border-color: #d0d0d0;
+    }
+
+    .btn-outline:focus, .btn-outline:active {
+      background: #f8f9fa !important;
+      color: #111827 !important;
+      border-color: #d0d0d0 !important;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+    }
+
+    .btn-outline i {
+      color: inherit;
     }
     
     .table th {
@@ -136,6 +150,87 @@
     .agenda-topic {
       font-size: 13px;
       color: #64748b;
+    }
+
+    .lecture-item {
+      border: 1px solid rgba(37, 99, 235, 0.12);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.72);
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+
+    .lecture-summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 18px;
+      cursor: pointer;
+    }
+
+    .lecture-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .lecture-summary-main {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .lecture-meta {
+      min-width: 78px;
+    }
+
+    .lecture-title {
+      font-weight: 600;
+      font-size: 15px;
+      color: #1f2937;
+    }
+
+    .lecture-subtitle {
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .lecture-toggle {
+      color: #64748b;
+      transition: transform 0.2s ease;
+    }
+
+    .lecture-item[open] .lecture-toggle {
+      transform: rotate(180deg);
+    }
+
+    .lecture-content {
+      padding: 0 18px 18px;
+      border-top: 1px solid rgba(148, 163, 184, 0.22);
+    }
+
+    .lecture-content-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+      margin-bottom: 14px;
+    }
+
+    .lecture-detail-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+
+    .lecture-detail-value {
+      font-size: 14px;
+      color: #111827;
+      word-break: break-word;
     }
     
     .progress-circle {
@@ -211,6 +306,25 @@
       background: #dcfce7;
       color: #15803d;
     }
+
+    .import-file-link {
+      color: #1f2937;
+      font-weight: 700;
+      font-size: 1.05rem;
+      text-decoration: none;
+    }
+
+    .import-file-link:hover {
+      color: var(--primary-color);
+    }
+
+    .import-file-card {
+      border: 1px solid #dbe3ef;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+      background: #fff;
+    }
     
     @media (max-width: 768px) {
       .calendar-view {
@@ -280,16 +394,49 @@
         <h5 class="fw-bold mb-3"><i class="bi bi-sun me-2"></i>Today's Classes</h5>
         {% if today_entries %}
           {% for entry in today_entries %}
-          <div class="d-flex align-items-center mb-3 pb-3 border-bottom">
-            <div class="me-3">
-              <div class="agenda-time">{{ entry.lecture_number }}st Lecture</div>
-              <div class="small text-muted">{{ entry.duration }} hr</div>
-            </div>
-            <div class="flex-grow-1">
-              <div class="agenda-subject">{{ entry.subject.subject }}</div>
-              <div class="agenda-topic">{{ entry.topic }}</div>
-            </div>
-            <div>
+          <details class="lecture-item">
+            <summary class="lecture-summary">
+              <div class="lecture-summary-main">
+                <div class="lecture-meta">
+                  <div class="agenda-time">Lecture {{ entry.lecture_number }}</div>
+                  <div class="small text-muted">{{ entry.lecture_time|time:"h:i A"|default:"-" }}</div>
+                </div>
+                <div class="flex-grow-1">
+                  <div class="lecture-title">{{ entry.subject.subject }}</div>
+                  <div class="lecture-subtitle">{{ entry.topic }}</div>
+                </div>
+              </div>
+              <i class="bi bi-chevron-down lecture-toggle"></i>
+            </summary>
+            <div class="lecture-content">
+              <div class="lecture-content-grid">
+                <div>
+                  <div class="lecture-detail-label">Chapter</div>
+                  <div class="lecture-detail-value">{{ entry.chapter|default:"-" }}</div>
+                </div>
+                <div>
+                  <div class="lecture-detail-label">Time</div>
+                  <div class="lecture-detail-value">{{ entry.lecture_time|time:"h:i A"|default:"-" }}</div>
+                </div>
+                <div>
+                  <div class="lecture-detail-label">Duration</div>
+                  <div class="lecture-detail-value">{{ entry.get_duration_display }}</div>
+                </div>
+                <div>
+                  <div class="lecture-detail-label">Status</div>
+                  <div class="lecture-detail-value">
+                    {% if entry.is_completed %}
+                    <span class="badge-subject" style="background: #dcfce7; color: #15803d;">
+                      <i class="bi bi-check-circle me-1"></i>Done
+                    </span>
+                    {% else %}
+                    <span class="badge-subject" style="background: #fef3c7; color: #d97706;">
+                      <i class="bi bi-clock me-1"></i>Pending
+                    </span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
               {% if entry.is_completed %}
               <span class="badge-subject" style="background: #dcfce7; color: #15803d;">
                 <i class="bi bi-check-circle me-1"></i>Done
@@ -300,7 +447,7 @@
               </button>
               {% endif %}
             </div>
-          </div>
+          </details>
           {% endfor %}
         {% else %}
           <div class="text-center text-muted py-4">
@@ -344,7 +491,7 @@
                 <th>Subject</th>
                 <th>Topic</th>
                 <th>Chapter</th>
-                <th>Duration</th>
+                <th>Lecture Time</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -355,7 +502,7 @@
                 <td><span class="badge-subject">{{ entry.subject.subject }}</span></td>
                 <td>{{ entry.topic }}</td>
                 <td>{{ entry.chapter|default:"-" }}</td>
-                <td>{{ entry.get_duration_display }}</td>
+                <td>{{ entry.lecture_time|time:"h:i A"|default:"-" }}</td>
                 <td>
                   {% if entry.is_completed %}
                   <span class="badge-subject" style="background: #dcfce7; color: #15803d;">
@@ -387,16 +534,45 @@
       </div>
     </div>
   </div>
+
+  <div class="card mb-4" id="teacherImportsSection">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div><i class="bi bi-folder2-open me-2"></i>My Imported Content</div>
+      <span class="text-muted small" id="teacherImportsCount">0 imports</span>
+    </div>
+    <div class="card-body" id="teacherImportsContent"></div>
+  </div>
 </div>
+
+{{ parsed_imports_json|json_script:"teacher-imports-data" }}
 
 <script>
 let currentView = 'list';
 let entriesData = [];
+let teacherImportsData = JSON.parse(document.getElementById('teacher-imports-data').textContent);
 
 document.addEventListener('DOMContentLoaded', function() {
   loadEntries();
   renderProgress();
+  renderTeacherImports();
 });
+
+function getCookie(name) {
+  const cookieValue = document.cookie
+    .split('; ')
+    .find(row => row.startsWith(`${name}=`));
+
+  return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : null;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 function loadEntries() {
   entriesData = [
@@ -408,6 +584,9 @@ function loadEntries() {
       topic: "{{ entry.topic }}",
       chapter: "{{ entry.chapter|default:"" }}",
       duration: "{{ entry.duration }}",
+      duration_display: "{{ entry.get_duration_display }}",
+      lecture_time: "{{ entry.lecture_time|time:"H:i"|default:"" }}",
+      lecture_time_display: "{{ entry.lecture_time|time:"h:i A"|default:"-" }}",
       is_completed: {{ entry.is_completed|yesno:"true,false" }}
     }{% if not forloop.last %},{% endif %}
     {% endfor %}
@@ -420,6 +599,44 @@ function renderProgress() {
   if (circle) {
     circle.style.background = `conic-gradient(var(--primary-color) ${percent * 3.6}deg, #e5e7eb 0deg)`;
   }
+}
+
+function renderTeacherImports() {
+  const container = document.getElementById('teacherImportsContent');
+  const counter = document.getElementById('teacherImportsCount');
+  counter.textContent = `${teacherImportsData.length} import${teacherImportsData.length === 1 ? '' : 's'}`;
+
+  if (!teacherImportsData.length) {
+    container.innerHTML = `
+      <div class="text-center text-muted py-4">
+        <i class="bi bi-file-earmark-arrow-up d-block mb-2" style="font-size: 32px;"></i>
+        No imported files are assigned to you yet.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = teacherImportsData.map(item => `
+    <div class="import-file-card">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+        <div>
+          <a href="${escapeHtml(item.file_url)}" target="_blank" class="import-file-link">
+            ${escapeHtml(item.file_name)}
+          </a>
+          <div class="text-muted small">
+            ${escapeHtml(item.file_type)} | Folder: ${escapeHtml(item.folder_name || item.teacher || '')}
+          </div>
+          <div class="text-muted small">
+            Imported on ${escapeHtml(item.uploaded_at_display)} by ${escapeHtml(item.uploaded_by)}
+          </div>
+          <div class="small text-primary mt-1">${escapeHtml(item.summary || '')}</div>
+        </div>
+        <a href="${escapeHtml(item.file_url)}" target="_blank" class="btn btn-sm btn-outline-primary">
+          <i class="bi bi-eye me-1"></i> Open Original
+        </a>
+      </div>
+    </div>
+  `).join('');
 }
 
 function switchView(view) {
@@ -484,7 +701,7 @@ function showDayDetails(dateStr) {
   if (events.length === 0) return;
   
   let msg = events.map(e => 
-    `${e.subject} - ${e.topic} (${e.is_completed ? 'Done' : 'Pending'})`
+    `${e.subject} - ${e.topic} at ${e.lecture_time_display || '-'} (${e.is_completed ? 'Done' : 'Pending'})`
   ).join('\n');
   alert(`Schedule for ${dateStr}:\n\n${msg}`);
 }
@@ -492,14 +709,23 @@ function showDayDetails(dateStr) {
 async function markComplete(id) {
   try {
     const response = await fetch(`/teacherschedule/mark-completed/${id}/`, {
-      method: 'POST'
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken') || '',
+      }
     });
-    
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const errorText = await response.text();
+      throw new Error(errorText.slice(0, 120) || 'Unexpected server response');
+    }
+
     const result = await response.json();
     if (result.success) {
       location.reload();
     } else {
-      alert('Error updating status');
+      alert(result.error || 'Error updating status');
     }
   } catch (err) {
     alert('Error: ' + err.message);
@@ -518,16 +744,30 @@ function downloadPDF() {
   
   doc.autoTable({
     startY: 42,
-    head: [['Date', 'Subject', 'Topic', 'Chapter', 'Duration', 'Status']],
+    head: [['Date', 'Subject', 'Topic', 'Chapter', 'Duration', 'Lecture Time', 'Status']],
     body: entriesData.map(e => [
       e.date,
       e.subject,
       e.topic,
       e.chapter || '-',
-      e.duration,
+      e.duration_display || e.duration,
+      e.lecture_time_display || '-',
       e.is_completed ? 'Completed' : 'Pending'
     ]),
   });
+
+  if (teacherImportsData.length) {
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 12,
+      head: [['Imported File', 'Folder', 'Type', 'Imported At']],
+      body: teacherImportsData.map(item => [
+        item.file_name,
+        item.folder_name || item.teacher || '-',
+        item.file_type,
+        item.uploaded_at_display || '-'
+      ]),
+    });
+  }
   
   doc.save(`my_schedule_${new Date().toISOString().split('T')[0]}.pdf`);
 }

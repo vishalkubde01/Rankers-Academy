@@ -1048,7 +1048,7 @@ def register_student(request):
 
 @login_required
 def user_management(request):
-    
+   
     if not (
         request.user.is_superuser
         or (hasattr(request.user, "teacheradmin") and request.user.teacheradmin.role == "Admin")
@@ -1057,16 +1057,13 @@ def user_management(request):
     
     # Order by student_name to ensure consistent ordering
     students = Student.objects.select_related("user").order_by("-id")
+    
 
     grouped = {}
     for s in students:
         grouped.setdefault(s.batch or "Unassigned", []).append(s)
     
-    # Build batch_counts: {batch_name: count_of_students_in_batch}
-    batch_counts = {}
-    for batch, student_list in grouped.items():
-        batch_counts[batch] = len(student_list)
-
+    
     teachers = TeacherAdmin.objects.select_related("user").order_by("role", "name")
 
     # Pagination for students
@@ -1102,7 +1099,6 @@ def user_management(request):
             "teachers_page": teachers_page,
             "total_students": students.count(),
             "total_teachers": teachers.count(),
-            "batch_counts_json": json.dumps(batch_counts),
         },
     )
 
@@ -1113,6 +1109,7 @@ def add_user(request):
     if request.method != "POST":
         return redirect("user-management")
 
+   
     if not (
         request.user.is_superuser
         or (hasattr(request.user, "teacheradmin") and request.user.teacheradmin.role == "Admin")
@@ -1120,49 +1117,12 @@ def add_user(request):
         return HttpResponseForbidden("Only admins can add users.")
 
     user_type = request.POST.get("user_type", "student")
+    username = (request.POST.get("username") or "").strip()
     email = _normalize_email(request.POST.get("email"))
     password = DEFAULT_ONE_TIME_PASSWORD
     name = (request.POST.get("name") or "").strip()
+
     contact = _normalize_phone(request.POST.get("contact"))
-    batch = (request.POST.get("batch") or "").strip()
-
-    # Determine username based on user type
-    if user_type == "student":
-        # Generate username from batch
-        if not batch:
-            messages.error(request, "Batch is required for student.")
-            return redirect("user-management")
-
-        # Parse batch to derive prefix (e.g., "Star 01" -> "S01", "Alpha" -> "A01")
-        parts = batch.split()
-        first_letter = parts[0][0].upper() if parts else ""
-        batch_num = "01"
-        if len(parts) >= 2:
-            second = parts[1]
-            # Extract digits; allow leading zeros
-            digits = "".join(filter(str.isdigit, second))
-            if digits:
-                batch_num = f"{int(digits):02d}"  # ensure two-digit
-        prefix = first_letter + batch_num
-        constant = "202628"
-
-        # Count existing students with same batch to determine sequence
-        existing_count = Student.objects.filter(batch=batch).count()
-        seq = existing_count + 1
-        seq_str = f"{seq:02d}"
-
-        username = prefix + constant + seq_str
-
-        # Ensure uniqueness in case of race conditions or manual entries
-        while User.objects.filter(username=username).exists():
-            seq += 1
-            seq_str = f"{seq:02d}"
-            username = prefix + constant + seq_str
-    else:
-        username = (request.POST.get("username") or "").strip()
-        if not username:
-            messages.error(request, "Username is required for teacher/admin.")
-            return redirect("user-management")
 
     if not username or not email or not name:
         messages.error(request, "All required fields must be filled.")
@@ -1243,7 +1203,7 @@ def add_user(request):
             student_name=request.POST.get("name"),
             contact=contact,
             email=email,
-            school="",
+            school=request.POST.get("school"),
             board=student_board,
             grade=student_grade,
             batch=student_batch,
@@ -1253,15 +1213,12 @@ def add_user(request):
         )
         messages.success(request, "Student added successfully")
     else:
-        
+       
         if not (request.user.is_superuser or (hasattr(request.user, "teacheradmin") and request.user.teacheradmin.role == "Admin")):
             messages.error(request, "Only admins can add teachers.")
             return redirect("user-management")
-        
-        # Handle profile picture upload
-        profile_pic = request.FILES.get("profile_picture")
-        
-        teacher = TeacherAdmin.objects.create(
+            
+        TeacherAdmin.objects.create(
             user=user,
             name=name,
             username=username,
@@ -1275,12 +1232,6 @@ def add_user(request):
             subjects=request.POST.get("subjects"),
             must_change_password=True,
         )
-        
-        # Save profile picture if provided
-        if profile_pic:
-            teacher.profile_picture = profile_pic
-            teacher.save()
-        
         messages.success(request, "Teacher/Admin added successfully")
 
     return redirect("user-management")
@@ -1310,6 +1261,7 @@ def edit_student(request, id):
     student.student_name = student_name
     student.contact = request.POST.get("contact")
     student.email = request.POST.get("email")
+    student.school = request.POST.get("school")
     student.board = request.POST.get("board")
     student.grade = request.POST.get("grade")
     student.batch = request.POST.get("batch") or student.batch  
@@ -1350,7 +1302,7 @@ def edit_teacher(request, id):
             messages.error(request, "Email already exists")
             return redirect("user-management")
 
-  
+ 
     teacher_name = (request.POST.get("name") or "").strip()
     if not _is_valid_person_name(teacher_name):
         messages.error(request, "Name should contain only letters and spaces.")
@@ -1366,11 +1318,6 @@ def edit_teacher(request, id):
     teacher.board = request.POST.get("board")
     teacher.batch = request.POST.get("batch")
     teacher.subjects = request.POST.get("subjects")
-    
-    # Handle profile picture upload
-    if "profile_picture" in request.FILES:
-        teacher.profile_picture = request.FILES["profile_picture"]
-    
     teacher.save()
 
    

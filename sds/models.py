@@ -37,7 +37,7 @@ class Student(models.Model):
 
 class TeacherAdmin(models.Model):
     ROLE_CHOICES = (("Teacher", "Teacher"), ("Admin", "Admin"))
-    
+   
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     username = models.CharField(max_length=150)
@@ -51,7 +51,6 @@ class TeacherAdmin(models.Model):
     batch = models.CharField(max_length=50, blank=True, null=True)
 
     subjects = models.TextField(blank=True)
-    profile_picture = models.ImageField(upload_to="teacher_profiles/", blank=True, null=True)
     must_change_password = models.BooleanField(default=False)
 
     def __str__(self):

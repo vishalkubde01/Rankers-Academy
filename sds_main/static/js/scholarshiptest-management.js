@@ -3,7 +3,6 @@ let allTests = [];
 let allFolders = [];
 let isInsideFolderView = false;
 let pendingDeleteFolders = [];
-let currentFolderId = null;
 
 function updatePrimaryActionButton() {
   const label = document.getElementById("primary-action-label");
@@ -208,7 +207,7 @@ function handleCreateTest() {
 
   const data = {
     name: name,
-    folderId: isInsideFolderView ? currentFolderId : null,
+    folderId: null,
     duration_hours: parseInt(hourSelect.value) || 0,
     duration_minutes: parseInt(minuteSelect.value) || 30,
     tags: tagsInput.value.trim() || "",
@@ -237,20 +236,12 @@ function handleCreateTest() {
         const test = result.test;
         test.folderId = data.folderId;
         allTests.push(test);
-        if (isInsideFolderView) {
-          renderTest(test, true);
-          const emptyState = document.getElementById("empty-state");
-          emptyState.style.display = "none";
-          document.getElementById("test-list-container").style.display = "block";
-        } else {
-          renderTest(test, false);
-        }
+        renderTest(test, false);
         document.getElementById("create-test-form").reset();
         const modal = bootstrap.Modal.getInstance(
           document.getElementById("createTestModal"),
         );
         if (modal) modal.hide();
-        updateCounts();
       } else {
         console.error("Create test failed:", result.error);
       }
@@ -672,11 +663,10 @@ function renderFolder(data, index) {
 
 function showFolderTests(index, folderId, folderName) {
   isInsideFolderView = true;
-  currentFolderId = folderId;
   updatePrimaryActionButton();
   updateFolderActions();
   document.getElementById("folder-grid-container").style.display = "none";
-  document.getElementById("folder-section").style.display = "none";
+  document.querySelectorAll(".section-title")[0].style.display = "none";
   document.querySelector(".view-all-btn").style.display = "none";
   document.getElementById("back-btn").style.display = "block";
 
@@ -702,11 +692,10 @@ function showFolderTests(index, folderId, folderName) {
 
 function showAllItems() {
   isInsideFolderView = false;
-  currentFolderId = null;
   updatePrimaryActionButton();
   pendingDeleteFolders = [];
   document.getElementById("folder-grid-container").style.display = "grid";
-  document.getElementById("folder-section").style.display = "block";
+  document.querySelectorAll(".section-title")[0].style.display = "flex";
   document.querySelector(".view-all-btn").style.display = "inline-block";
   document.getElementById("back-btn").style.display = "none";
 

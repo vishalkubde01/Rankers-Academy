@@ -16,5 +16,7 @@ path('', views.index, name='index'),
     path('bulk-assign/', views.bulk_assign_teacher, name='bulk_assign'),
     path('export/', views.export_schedule, name='export_schedule'),
     path('import/', views.import_schedule, name='import_schedule'),
+    path('import/delete/<int:upload_id>/', views.delete_uploaded_schedule, name='delete_uploaded_schedule'),
+    path('import/bulk-delete/', views.bulk_delete_uploaded_schedules, name='bulk_delete_uploaded_schedules'),
 
 ]

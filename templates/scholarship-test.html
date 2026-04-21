@@ -192,32 +192,6 @@
       </div>
     </div>
 
-    <div class="modal-overlay" id="tabSwitchModal">
-      <div class="modal-content">
-        <div class="modal-icon warning">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-            />
-          </svg>
-        </div>
-        <h3 class="modal-title">Tab Switch Detected!</h3>
-        <p class="modal-message">
-          You have switched away from the exam tab. This is warning <span id="tabSwitchCount">1</span> of 3.
-          <br/><br/>
-          On the <strong>third</strong> tab switch, your test will be automatically submitted.
-        </p>
-        <div class="modal-buttons">
-          <button class="modal-btn confirm" onclick="closeTabSwitchModal()">
-            I Understand
-          </button>
-        </div>
-      </div>
-    </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     {{ questions|json_script:"scholarship-questions-data" }}
@@ -231,8 +205,6 @@
       let answers = {};
       let timerInterval;
       let isSubmitted = false;
-      let tabSwitchCount = 0;
-      let tabSwitchWarningShown = false;
 
       function getQuestionByIndex(index) {
         return questions[index] || null;
@@ -626,77 +598,6 @@
           }
         }
         return cookieValue;
-      }
-
-      document.addEventListener('visibilitychange', function() {
-        if (document.hidden && !isSubmitted) {
-          tabSwitchCount++;
-          
-          if (tabSwitchCount >= 3) {
-            showTabSwitchFinalModal();
-          } else {
-            showTabSwitchWarning();
-          }
-        }
-      });
-
-      function showTabSwitchWarning() {
-        const tabSwitchModal = document.getElementById('tabSwitchModal');
-        const tabSwitchCountEl = document.getElementById('tabSwitchCount');
-        
-        if (tabSwitchCountEl) {
-          tabSwitchCountEl.textContent = tabSwitchCount;
-        }
-        
-        if (tabSwitchModal) {
-          tabSwitchModal.classList.add('active');
-        }
-      }
-
-      function closeTabSwitchModal() {
-        const tabSwitchModal = document.getElementById('tabSwitchModal');
-        if (tabSwitchModal) {
-          tabSwitchModal.classList.remove('active');
-        }
-      }
-
-      function showTabSwitchFinalModal() {
-        if (isSubmitted) return;
-        isSubmitted = true;
-
-        if (timerInterval) {
-          clearInterval(timerInterval);
-        }
-
-        const finalCountEl = document.getElementById('finalCount');
-        if (finalCountEl) {
-          finalCountEl.textContent = getAnsweredCount();
-        }
-
-        fetch('/scholarship/test/' + attemptId + '/submit/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken()
-          },
-          body: JSON.stringify({ answers: answers })
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            window.location.href = data.redirect;
-          } else {
-            alert('Auto-submit failed due to tab switching. Please submit again.');
-            isSubmitted = false;
-            if (timerInterval) startTimer();
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          alert('Auto-submit failed due to tab switching. Please submit again.');
-          isSubmitted = false;
-          if (timerInterval) startTimer();
-        });
       }
 
       function escapeHtml(value) {

@@ -3,6 +3,14 @@ from django.db import models
 # Create your models here.
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils.text import slugify
+
+
+def uploaded_schedule_path(instance, filename):
+    """Store uploaded schedules inside teacher-specific folders."""
+    teacher_name = instance.teacher.name if getattr(instance, "teacher", None) else "unassigned"
+    teacher_folder = slugify(teacher_name) or "unassigned"
+    return f"schedules/uploads/{teacher_folder}/{filename}"
 
 
 class SubjectSchedule(models.Model):
@@ -39,11 +47,19 @@ class ScheduleEntry(models.Model):
         blank=True,
         null=True
     )
+    source_upload = models.ForeignKey(
+        "teacherschedule.UploadedSchedule",
+        on_delete=models.CASCADE,
+        related_name="schedule_entries",
+        blank=True,
+        null=True,
+    )
     topic = models.CharField(max_length=200)
     chapter = models.CharField(max_length=150, blank=True, default="")
     notes = models.TextField(blank=True, default="")
     duration = models.CharField(max_length=20, choices=DURATION_CHOICES, default="1")
     lecture_number = models.PositiveIntegerField(default=1)
+    lecture_time = models.TimeField(blank=True, null=True)
     is_completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -66,10 +82,17 @@ class UploadedSchedule(models.Model):
 
     file_name = models.CharField(max_length=255)
     file_type = models.CharField(max_length=20, choices=FILE_TYPE_CHOICES)
-    file = models.FileField(upload_to="schedules/uploads/")
+    file = models.FileField(upload_to=uploaded_schedule_path)
     grade = models.CharField(max_length=20)
     board = models.CharField(max_length=50)
     batch = models.CharField(max_length=50, default="B1")
+    teacher = models.ForeignKey(
+        "sds.TeacherAdmin",
+        on_delete=models.CASCADE,
+        related_name="uploaded_schedules",
+        blank=True,
+        null=True,
+    )
     uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 

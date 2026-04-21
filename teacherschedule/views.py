@@ -11,6 +11,7 @@ import json
 import csv
 import os
 import re
+from collections import defaultdict
 
 import pandas as pd
 from pypdf import PdfReader
@@ -34,6 +35,8 @@ def serialize_schedule_entry(entry):
         'duration': entry.duration,
         'duration_display': entry.get_duration_display(),
         'lecture_number': entry.lecture_number,
+        'lecture_time': entry.lecture_time.strftime('%H:%M') if entry.lecture_time else '',
+        'lecture_time_display': entry.lecture_time.strftime('%I:%M %p') if entry.lecture_time else '-',
         'is_completed': entry.is_completed,
     }
 
@@ -45,18 +48,30 @@ def serialize_schedule_entries(entries):
 
 def serialize_uploaded_file(uploaded_file):
     """Convert an uploaded schedule file into JSON-safe data."""
+    teacher_name = uploaded_file.teacher.name if uploaded_file.teacher else "Unassigned"
     return {
         'id': uploaded_file.id,
         'file_name': uploaded_file.file_name,
         'file_type': uploaded_file.get_file_type_display(),
         'file_url': uploaded_file.file.url if uploaded_file.file else '',
+        'file_path': uploaded_file.file.name if uploaded_file.file else '',
         'grade': uploaded_file.grade,
         'board': uploaded_file.board,
         'batch': uploaded_file.batch,
+        'teacher': teacher_name,
+        'teacher_id': uploaded_file.teacher_id,
+        'folder_name': teacher_name,
         'uploaded_by': uploaded_file.uploaded_by.get_full_name() or uploaded_file.uploaded_by.username,
         'uploaded_at': uploaded_file.uploaded_at.strftime('%Y-%m-%d %H:%M:%S'),
         'uploaded_at_display': uploaded_file.uploaded_at.strftime('%d-%m-%Y %I:%M %p'),
     }
+
+
+def delete_uploaded_schedule_record(uploaded_schedule):
+    """Remove uploaded schedule metadata and stored file."""
+    if uploaded_schedule.file:
+        uploaded_schedule.file.delete(save=False)
+    uploaded_schedule.delete()
 
 
 def serialize_uploaded_files(uploaded_files):
@@ -331,6 +346,238 @@ def parse_uploaded_schedule(uploaded_schedule):
     }
 
 
+def group_parsed_imports_by_teacher(parsed_imports):
+    """Group parsed imports by teacher/folder for template rendering."""
+    grouped_imports = defaultdict(list)
+
+    for parsed_import in parsed_imports:
+        grouped_imports[parsed_import.get("teacher") or "Unassigned"].append(parsed_import)
+
+    groups = []
+    for teacher_name, items in grouped_imports.items():
+        items.sort(key=lambda item: item["uploaded_at"], reverse=True)
+        groups.append({
+            "teacher": teacher_name,
+            "folder_name": teacher_name,
+            "items": items,
+            "count": len(items),
+        })
+
+    groups.sort(key=lambda group: group["teacher"].lower())
+    return groups
+
+
+def split_teacher_subjects(subjects_text):
+    """Split teacher subject text into normalized values."""
+    if not subjects_text:
+        return []
+    return [
+        normalize_text(part)
+        for part in re.split(r"[,/\n]+", subjects_text)
+        if normalize_text(part)
+    ]
+
+
+def infer_subject_name(uploaded_schedule, parsed_import):
+    """Infer the subject name for imported content."""
+    teacher_subjects = split_teacher_subjects(getattr(uploaded_schedule.teacher, "subjects", ""))
+    candidate_text = " ".join([
+        normalize_text(uploaded_schedule.file_name),
+        normalize_text(parsed_import.get("summary")),
+        " ".join(chapter.get("title", "") for chapter in parsed_import.get("chapters", [])[:5]),
+        " ".join(lecture.get("title", "") for lecture in parsed_import.get("lectures", [])[:5]),
+    ]).lower()
+
+    subject_names = list(Subject.objects.values_list("name", flat=True).distinct())
+    for teacher_subject in teacher_subjects:
+        if teacher_subject.lower() in candidate_text:
+            return teacher_subject
+
+    for subject_name in subject_names:
+        if normalize_text(subject_name).lower() in candidate_text:
+            return normalize_text(subject_name)
+
+    if teacher_subjects:
+        return teacher_subjects[0]
+    return "Imported Content"
+
+
+def get_or_create_subject_schedule_for_upload(uploaded_schedule, parsed_import):
+    """Resolve a subject schedule bucket for imported content."""
+    subject_name = infer_subject_name(uploaded_schedule, parsed_import)
+    teacher = uploaded_schedule.teacher
+    grade = uploaded_schedule.grade if uploaded_schedule.grade not in {"", "All"} else (teacher.grade or "General")
+    board = uploaded_schedule.board if uploaded_schedule.board not in {"", "General"} else (teacher.board or "General")
+    batch = uploaded_schedule.batch if uploaded_schedule.batch else (teacher.batch or "B1")
+
+    subject_schedule, _ = SubjectSchedule.objects.get_or_create(
+        subject=subject_name,
+        grade=grade,
+        board=board,
+        batch=batch,
+    )
+    return subject_schedule
+
+
+def extract_topics_from_parsed_import(parsed_import):
+    """Extract likely schedule topics from parsed import data."""
+    topics = []
+
+    for lecture in parsed_import.get("lectures", []):
+        title = normalize_text(lecture.get("title"))
+        if title:
+            topics.append(title)
+
+    for sheet in parsed_import.get("sheets", []):
+        columns = [normalize_text(column).lower() for column in sheet.get("columns", [])]
+        topic_index = next(
+            (index for index, column in enumerate(columns) if column in {"topic", "topics", "lecture", "lecture topic"}),
+            None,
+        )
+        if topic_index is None:
+            continue
+
+        for row in sheet.get("rows", []):
+            if topic_index < len(row):
+                topic = normalize_text(row[topic_index])
+                if topic:
+                    topics.append(topic)
+
+    seen = set()
+    unique_topics = []
+    for topic in topics:
+        key = topic.lower()
+        if key not in seen:
+            seen.add(key)
+            unique_topics.append(topic)
+    return unique_topics
+
+
+def build_schedule_rows_from_import(uploaded_schedule, parsed_import):
+    """Build schedule row payloads from parsed import content."""
+    rows = []
+    uploaded_date = uploaded_schedule.uploaded_at.date()
+
+    for index, lecture in enumerate(parsed_import.get("lectures", []), start=1):
+        topic = normalize_text(lecture.get("title"))
+        if not topic:
+            continue
+        rows.append({
+            "date": uploaded_date,
+            "topic": topic,
+            "chapter": normalize_text(lecture.get("details")),
+            "notes": normalize_text(lecture.get("details")),
+            "lecture_number": index,
+        })
+
+    if not rows and parsed_import.get("sheets"):
+        row_index = 1
+        for sheet in parsed_import.get("sheets", []):
+            columns = [normalize_text(column).lower() for column in sheet.get("columns", [])]
+            topic_index = next(
+                (index for index, column in enumerate(columns) if column in {"topic", "topics", "lecture", "lecture topic"}),
+                None,
+            )
+            if topic_index is None:
+                continue
+
+            for sheet_row in sheet.get("rows", []):
+                if topic_index >= len(sheet_row):
+                    continue
+                topic = normalize_text(sheet_row[topic_index])
+                if not topic:
+                    continue
+                rows.append({
+                    "date": uploaded_date,
+                    "topic": topic,
+                    "chapter": normalize_text(sheet.get("name")),
+                    "notes": "",
+                    "lecture_number": row_index,
+                })
+                row_index += 1
+
+    if not rows and parsed_import.get("phases"):
+        for index, phase in enumerate(parsed_import.get("phases", []), start=1):
+            topic = normalize_text(phase.get("phase"))
+            if not topic:
+                continue
+            rows.append({
+                "date": uploaded_date,
+                "topic": topic,
+                "chapter": normalize_text(phase.get("overview")),
+                "notes": " ".join(phase.get("items", [])[:5]),
+                "lecture_number": index,
+            })
+
+    if not rows:
+        fallback_topic = normalize_text(os.path.splitext(uploaded_schedule.file_name)[0]) or "Imported Schedule"
+        fallback_notes = " ".join((parsed_import.get("text_blocks") or [])[:3])
+        rows.append({
+            "date": uploaded_date,
+            "topic": fallback_topic,
+            "chapter": "",
+            "notes": normalize_text(fallback_notes),
+            "lecture_number": 1,
+        })
+
+    return rows
+
+
+def link_schedule_entries_to_upload(uploaded_schedule):
+    """Associate matching table rows with an uploaded schedule."""
+    parsed_import = parse_uploaded_schedule(uploaded_schedule)
+    topics = extract_topics_from_parsed_import(parsed_import)
+    if not uploaded_schedule.teacher_id or not topics:
+        return []
+
+    matching_entries = list(
+        ScheduleEntry.objects.filter(
+            teacher_id=uploaded_schedule.teacher_id,
+            topic__in=topics,
+        ).filter(source_upload__isnull=True)
+    )
+
+    if not matching_entries:
+        return []
+
+    entry_ids = [entry.id for entry in matching_entries]
+    ScheduleEntry.objects.filter(id__in=entry_ids).update(source_upload=uploaded_schedule)
+    return entry_ids
+
+
+def create_schedule_entries_for_upload(uploaded_schedule):
+    """Create schedule table rows for an uploaded file when needed."""
+    parsed_import = parse_uploaded_schedule(uploaded_schedule)
+    subject_schedule = get_or_create_subject_schedule_for_upload(uploaded_schedule, parsed_import)
+    rows = build_schedule_rows_from_import(uploaded_schedule, parsed_import)
+    created_entries = []
+
+    existing_entries = list(
+        ScheduleEntry.objects.filter(source_upload=uploaded_schedule).select_related("subject", "teacher")
+    )
+    if existing_entries:
+        return existing_entries
+
+    for row in rows:
+        entry = ScheduleEntry.objects.create(
+            date=row["date"],
+            subject=subject_schedule,
+            teacher=uploaded_schedule.teacher,
+            source_upload=uploaded_schedule,
+            topic=row["topic"],
+            chapter=row.get("chapter", ""),
+            notes=row.get("notes", ""),
+            duration="1",
+            lecture_number=row.get("lecture_number", 1),
+            lecture_time=None,
+        )
+        created_entries.append(entry)
+
+    return list(
+        ScheduleEntry.objects.filter(id__in=[entry.id for entry in created_entries]).select_related("subject", "teacher")
+    )
+
+
 def get_teacher_admin(user):
     """Get TeacherAdmin object for a user"""
     try:
@@ -396,7 +643,7 @@ def admin_schedule_management(request):
     filter_date_from = request.GET.get('date_from', '')
     filter_date_to = request.GET.get('date_to', '')
     
-    entries = ScheduleEntry.objects.select_related('subject', 'teacher').order_by('date', 'lecture_number')
+    entries = ScheduleEntry.objects.filter(source_upload__isnull=False).select_related('subject', 'teacher').order_by('date', 'lecture_number')
     
     if filter_subject:
         entries = entries.filter(subject__subject=filter_subject)
@@ -407,7 +654,7 @@ def admin_schedule_management(request):
     
     entries = list(entries[:50])
     uploaded_files = list(
-        UploadedSchedule.objects.select_related('uploaded_by').order_by('-uploaded_at')[:10]
+        UploadedSchedule.objects.select_related('uploaded_by', 'teacher').order_by('-uploaded_at')[:50]
     )
     parsed_imports = [parse_uploaded_schedule(uploaded_file) for uploaded_file in uploaded_files]
 
@@ -418,6 +665,7 @@ def admin_schedule_management(request):
         'entries': entries,
         'entries_json': serialize_schedule_entries(entries),
         'parsed_imports_json': parsed_imports,
+        'parsed_import_groups_json': group_parsed_imports_by_teacher(parsed_imports),
         'filter_subject': filter_subject,
         'filter_date_from': filter_date_from,
         'filter_date_to': filter_date_to,
@@ -442,7 +690,10 @@ def teacher_schedule_viewer(request):
     date_to = request.GET.get('date_to', '')
     subject_filter = request.GET.get('subject', '')
     
-    entries = ScheduleEntry.objects.filter(teacher=teacher).select_related('subject').order_by('date', 'lecture_number')
+    entries = ScheduleEntry.objects.filter(
+        teacher=teacher,
+        source_upload__isnull=False,
+    ).select_related('subject').order_by('date', 'lecture_number')
     
     if date_from:
         entries = entries.filter(date__gte=date_from)
@@ -459,6 +710,10 @@ def teacher_schedule_viewer(request):
     completed_count = entries.filter(is_completed=True).count()
     total_count = entries.count()
     completion_percent = (completed_count / total_count * 100) if total_count > 0 else 0
+    uploaded_files = list(
+        UploadedSchedule.objects.filter(teacher=teacher).select_related('uploaded_by', 'teacher').order_by('-uploaded_at')[:50]
+    )
+    parsed_imports = [parse_uploaded_schedule(uploaded_file) for uploaded_file in uploaded_files]
     
     context = {
         'teacher': teacher,
@@ -470,6 +725,7 @@ def teacher_schedule_viewer(request):
         'date_from': date_from,
         'date_to': date_to,
         'subject_filter': subject_filter,
+        'parsed_imports_json': parsed_imports,
     }
     
     return render(request, 'teacherschedule/teacher-viewer.html', context)
@@ -501,6 +757,7 @@ def add_schedule_entry(request):
                 notes=data.get('notes', ''),
                 duration=data.get('duration', '1'),
                 lecture_number=int(data.get('lecture_number', 1)),
+                lecture_time=datetime.strptime(data.get('lecture_time'), '%H:%M').time() if data.get('lecture_time') else None,
                 teacher_id=data.get('teacher_id')
             )
             
@@ -539,6 +796,8 @@ def update_schedule_entry(request, entry_id):
                 entry.is_completed = data['is_completed']
             if 'teacher_id' in data:
                 entry.teacher_id = data['teacher_id']
+            if 'lecture_time' in data:
+                entry.lecture_time = datetime.strptime(data['lecture_time'], '%H:%M').time() if data['lecture_time'] else None
             
             entry.save()
             entry = ScheduleEntry.objects.select_related('subject', 'teacher').get(id=entry.id)
@@ -590,7 +849,8 @@ def get_calendar_data(request):
     
     entries = ScheduleEntry.objects.filter(
         date__gte=start_date,
-        date__lt=end_date
+        date__lt=end_date,
+        source_upload__isnull=False,
     ).select_related('subject', 'teacher')
     
     # Filter by teacher if teacher user
@@ -642,7 +902,7 @@ def export_schedule(request):
     
     export_format = request.GET.get('format', 'excel')
     
-    entries = ScheduleEntry.objects.select_related('subject', 'teacher').order_by('date', 'lecture_number')
+    entries = ScheduleEntry.objects.filter(source_upload__isnull=False).select_related('subject', 'teacher').order_by('date', 'lecture_number')
     
     if export_format == 'excel':
         headers = [
@@ -654,6 +914,7 @@ def export_schedule(request):
             'Teacher',
             'Duration',
             'Lecture #',
+            'Lecture Time',
             'Completed',
             'Notes',
         ]
@@ -672,8 +933,23 @@ def export_schedule(request):
                 entry.teacher.name if entry.teacher else '',
                 entry.duration,
                 entry.lecture_number,
+                entry.lecture_time.strftime('%H:%M') if entry.lecture_time else '',
                 'Yes' if entry.is_completed else 'No',
                 entry.notes,
+            ])
+
+        writer.writerow([])
+        writer.writerow(['Imported Files'])
+        writer.writerow(['Teacher', 'File Name', 'Folder', 'Type', 'Imported At'])
+
+        imported_files = UploadedSchedule.objects.select_related('teacher').order_by('teacher__name', '-uploaded_at')
+        for uploaded_file in imported_files:
+            writer.writerow([
+                uploaded_file.teacher.name if uploaded_file.teacher else 'Unassigned',
+                uploaded_file.file_name,
+                uploaded_file.teacher.name if uploaded_file.teacher else 'Unassigned',
+                uploaded_file.get_file_type_display(),
+                uploaded_file.uploaded_at.strftime('%Y-%m-%d %H:%M'),
             ])
 
         return response
@@ -691,8 +967,11 @@ def import_schedule(request):
         return JsonResponse({'error': 'Invalid request'}, status=400)
 
     uploaded_file = request.FILES.get('schedule_file')
+    teacher_id = request.POST.get('teacher_id')
     if not uploaded_file:
         return JsonResponse({'error': 'Please select a file to import'}, status=400)
+    if not teacher_id:
+        return JsonResponse({'error': 'Please select a teacher for this import'}, status=400)
 
     file_extension = os.path.splitext(uploaded_file.name)[1].lower()
     allowed_file_types = {
@@ -704,6 +983,8 @@ def import_schedule(request):
     if file_extension not in allowed_file_types:
         return JsonResponse({'error': 'Only PDF and Excel files are allowed'}, status=400)
 
+    teacher = get_object_or_404(TeacherAdmin, id=teacher_id, role="Teacher")
+
     uploaded_schedule = UploadedSchedule.objects.create(
         file_name=uploaded_file.name,
         file_type=allowed_file_types[file_extension],
@@ -711,14 +992,62 @@ def import_schedule(request):
         grade=request.POST.get('grade', 'All'),
         board=request.POST.get('board', 'General'),
         batch=request.POST.get('batch', 'B1'),
+        teacher=teacher,
         uploaded_by=request.user,
     )
+    linked_entry_ids = link_schedule_entries_to_upload(uploaded_schedule)
+    created_entries = create_schedule_entries_for_upload(uploaded_schedule)
 
     return JsonResponse({
         'success': True,
         'message': f'{uploaded_file.name} imported successfully',
         'parsed_import': parse_uploaded_schedule(uploaded_schedule),
+        'linked_entry_ids': linked_entry_ids,
+        'entries': serialize_schedule_entries(created_entries),
     })
+
+
+@login_required
+def delete_uploaded_schedule(request, upload_id):
+    """Delete a single imported schedule file."""
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Admin access required'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    try:
+        uploaded_schedule = get_object_or_404(UploadedSchedule, id=upload_id)
+        deleted_entry_ids = list(uploaded_schedule.schedule_entries.values_list('id', flat=True))
+        delete_uploaded_schedule_record(uploaded_schedule)
+        return JsonResponse({'success': True, 'deleted_entry_ids': deleted_entry_ids})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+
+
+@login_required
+def bulk_delete_uploaded_schedules(request):
+    """Delete multiple imported schedule files."""
+    if not is_admin(request.user):
+        return JsonResponse({'error': 'Admin access required'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    try:
+        data = json.loads(request.body)
+        upload_ids = data.get('upload_ids', [])
+        uploads = list(UploadedSchedule.objects.filter(id__in=upload_ids))
+        deleted_entry_ids = list(
+            ScheduleEntry.objects.filter(source_upload_id__in=upload_ids).values_list('id', flat=True)
+        )
+
+        for uploaded_schedule in uploads:
+            delete_uploaded_schedule_record(uploaded_schedule)
+
+        return JsonResponse({'success': True, 'deleted_count': len(uploads), 'deleted_entry_ids': deleted_entry_ids})
+    except Exception as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
 
 
 @login_required

@@ -44,42 +44,45 @@
         <div class="card-body table-responsive">
           <table class="table table-hover align-middle">
             <thead>
-               <tr>
-                 <th>ID</th>
-                 <th>Name</th>
-                 <th>Contact</th>
-                 <th>Email</th>
-                 <th>Board</th>
-                 <th>Username</th>
-                 <th>Batch</th>
-                 <th class="text-center">Actions</th>
-               </tr>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Email</th>
+                <th>School</th>
+                <th>Board</th>
+                <th>Grade</th>
+                <th>Batch</th>
+                <th class="text-center">Actions</th>
+              </tr>
             </thead>
 
             <tbody>
               {% for student in students %}
-               <tr>
-                 <td>STU{{ student.id }}</td>
-                 <td class="fw-semibold">{{ student.student_name }}</td>
-                 <td>{{ student.contact }}</td>
-                 <td>{{ student.email }}</td>
-                 <td><span class="badge bg-info">{{ student.board }}</span></td>
-                 <td>{{ student.user.username }}</td>
-                 <td>{{ student.batch }}</td>
-                 <td class="text-center">
-                   <button
-                     class="btn btn-sm btn-outline-primary"
-                     data-bs-toggle="modal"
-                     data-bs-target="#editStudentModal"
-                     data-id="{{ student.id }}"
-                     data-name="{{ student.student_name }}"
-                     data-contact="{{ student.contact }}"
-                     data-email="{{ student.email }}"
-                     data-board="{{ student.board }}"
-                     data-grade="{{ student.grade }}"
-                     data-gender="{{ student.gender }}"
-                     data-batch="{{ student.batch }}"
-                   >
+              <tr>
+                <td>STU{{ student.id }}</td>
+                <td class="fw-semibold">{{ student.student_name }}</td>
+                <td>{{ student.contact }}</td>
+                <td>{{ student.email }}</td>
+                <td>{{ student.school }}</td>
+                <td><span class="badge bg-info">{{ student.board }}</span></td>
+                <td>{{ student.grade }}</td>
+                <td>{{ student.batch }}</td>
+                <td class="text-center">
+                  <button
+                    class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#editStudentModal"
+                    data-id="{{ student.id }}"
+                    data-name="{{ student.student_name }}"
+                    data-contact="{{ student.contact }}"
+                    data-email="{{ student.email }}"
+                    data-school="{{ student.school }}"
+                    data-board="{{ student.board }}"
+                    data-grade="{{ student.grade }}"
+                    data-gender="{{ student.gender }}"
+                    data-batch="{{ student.batch }}"
+                  >
                     <i class="fa-solid fa-pen"></i>
                   </button>
 
@@ -100,11 +103,11 @@
                 </td>
               </tr>
               {% empty %}
-               <tr>
-                 <td colspan="8" class="text-center text-muted">
-                   No students found!
-                 </td>
-               </tr>
+              <tr>
+                <td colspan="8" class="text-center text-muted">
+                  No students found!
+                </td>
+              </tr>
               {% endfor %}
             </tbody>
           </table>
@@ -166,58 +169,49 @@
         <div class="card-body table-responsive">
           <table class="table table-hover align-middle">
             <thead>
-               <tr>
-                 <th>ID</th>
-                 <th>Name</th>
-                 <th>Photo</th>
-                 <th>Gender</th>
-                 <th>Contact</th>
-                 <th>Email</th>
-                 <th>Username</th>
-                 <th>Role</th>
-                 <th>Subjects</th>
-                 <th class="text-center">Actions</th>
-               </tr>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Gender</th>
+                <th>Contact</th>
+                <th>Email</th>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Subjects</th>
+                <th class="text-center">Actions</th>
+              </tr>
             </thead>
 
             <tbody>
               {% for teacher in teachers %}
-               <tr>
-                 <td>TCH{{ teacher.id }}</td>
-                 <td class="fw-semibold">{{ teacher.name }}</td>
-                 <td>
-                   {% if teacher.profile_picture %}
-                     <img src="{{ teacher.profile_picture.url }}" alt="Profile" width="40" height="40" style="border-radius: 50%; object-fit: cover;" />
-                   {% else %}
-                     <i class="bi bi-person-circle" style="font-size: 1.5rem; color: #6c757d;"></i>
-                   {% endif %}
-                 </td>
-                 <td>{{ teacher.gender }}</td>
-                 <td>{{ teacher.contact }}</td>
-                 <td>{{ teacher.email }}</td>
-                 <td>{{ teacher.username }}</td>
-                 <td>
-                   <span class="badge bg-warning">{{ teacher.role }}</span>
-                 </td>
-                 <td>{{ teacher.subjects }}</td>
-                 <td class="text-center">
-                   <button
-                     class="btn btn-sm btn-outline-primary"
-                     data-bs-toggle="modal"
-                     data-bs-target="#editTeacherModal"
-                     data-id="{{ teacher.id }}"
-                     data-name="{{ teacher.name }}"
-                     data-username="{{teacher.username}}"
-                     data-contact="{{ teacher.contact }}"
-                     data-email="{{teacher.email}}"
-                     data-gender="{{ teacher.gender }}"
-                     data-role="{{ teacher.role }}"
-                     data-subjects="{{ teacher.subjects }}"
-                     data-grade="{{ teacher.grade }}"
-                     data-board="{{ teacher.board }}"
-                     data-batch="{{ teacher.batch }}"
-                     data-profile-picture="{% if teacher.profile_picture %}{{ teacher.profile_picture.url }}{% endif %}"
-                   >
+              <tr>
+                <td>TCH{{ teacher.id }}</td>
+                <td class="fw-semibold">{{ teacher.name }}</td>
+                <td>{{ teacher.gender }}</td>
+                <td>{{ teacher.contact }}</td>
+                <td>{{ teacher.email }}</td>
+                <td>{{ teacher.username }}</td>
+                <td>
+                  <span class="badge bg-warning">{{ teacher.role }}</span>
+                </td>
+                <td>{{ teacher.subjects }}</td>
+                <td class="text-center">
+                  <button
+                    class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#editTeacherModal"
+                    data-id="{{ teacher.id }}"
+                    data-name="{{ teacher.name }}"
+                    data-username="{{teacher.username}}"
+                    data-contact="{{ teacher.contact }}"
+                    data-email="{{teacher.email}}"
+                    data-gender="{{ teacher.gender }}"
+                    data-role="{{ teacher.role }}"
+                    data-subjects="{{ teacher.subjects }}"
+                    data-grade="{{ teacher.grade }}"
+                    data-board="{{ teacher.board }}"
+                    data-batch="{{ teacher.batch }}"
+                  >
                     <i class="fa-solid fa-pen"></i>
                   </button>
 
@@ -301,10 +295,10 @@
 
     <!--  ADD USER MODAL  -->
     <div class="modal fade" id="addUserModal" tabindex="-1">
-       <div class="modal-dialog modal-lg">
-         <form method="post" action="{% url 'add_user' %}" class="modal-content" enctype="multipart/form-data">
-           {% csrf_token %}
-           <div class="modal-header">
+      <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'add_user' %}" class="modal-content">
+          {% csrf_token %}
+          <div class="modal-header">
             <h5 class="modal-title">Add User</h5>
             <button
               type="button"
@@ -332,9 +326,8 @@
               />
             </div>
 
-            <div class="row g-3" id="commonFieldsRow">
-              <!-- Full Name -->
-              <div class="col-md-6 field-name-col">
+            <div class="row g-3">
+              <div class="col-md-6">
                 <input
                   class="form-control alpha-only"
                   name="name"
@@ -344,31 +337,28 @@
                 />
                 <div class="invalid-feedback" id="nameError"></div>
               </div>
-               <!-- Batch (common for student) -->
-               <div class="col-md-6 field-batch-col" id="commonBatchCol">
-                 <input
-                   class="form-control"
-                   name="batch"
-                   id="batchInputCommon"
-                   placeholder="Batch (ex: B1, B2)"
-                 />
-                 <div class="invalid-feedback" id="batchError"></div>
-               </div>
-               <!-- Username -->
-               <div class="col-md-6 field-username-col">
-                 <input
-                   class="form-control"
-                   name="username"
-                   id="commonUsername"
-                   placeholder="Username"
-                   required
-                   maxlength="50"
-                 />
-                 <div class="invalid-feedback" id="usernameError"></div>
-                 <small class="text-muted" id="usernameHint" style="display:none;">Auto-generated from batch</small>
-               </div>
-              <!-- Contact -->
-              <div class="col-md-6 field-contact-col">
+              <div class="col-md-6">
+                <input
+                  class="form-control"
+                  name="username"
+                  placeholder="Username"
+                  required
+                  maxlength="50"
+                />
+                <div class="invalid-feedback" id="usernameError"></div>
+              </div>
+              <div class="col-md-6">
+                <input
+                  class="form-control"
+                  name="email"
+                  type="email"
+                  placeholder="Email"
+                  required
+                  maxlength="100"
+                />
+                <div class="invalid-feedback" id="emailError"></div>
+              </div>
+              <div class="col-md-6">
                 <input
                   type="tel"
                   class="form-control number-only"
@@ -380,29 +370,7 @@
                 />
                 <div class="invalid-feedback" id="contactError"></div>
               </div>
-              <!-- Email -->
-              <div class="col-md-6 field-email-col">
-                <input
-                  class="form-control"
-                  name="email"
-                  type="email"
-                  placeholder="Email"
-                  required
-                  maxlength="100"
-                />
-                <div class="invalid-feedback" id="emailError"></div>
-              </div>
-              <!-- Gender -->
-              <div class="col-md-6 field-gender-col">
-                <select class="form-select" name="gender" required>
-                  <option value="">Gender</option>
-                  <option>Male</option>
-                  <option>Female</option>
-                  <option>Other</option>
-                </select>
-              </div>
-              <!-- Password (full width) -->
-              <div class="col-12 field-password-col">
+              <div class="col-md-6">
                 <div class="input-group password-toggle-group">
                   <input
                     class="form-control"
@@ -423,10 +391,25 @@
                   </button>
                 </div>
               </div>
+              <div class="col-md-6">
+                <select class="form-select" name="gender" required>
+                  <option value="">Gender</option>
+                  <option>Male</option>
+                  <option>Female</option>
+                  <option>Other</option>
+                </select>
+              </div>
             </div>
 
             <!-- STUDENT ONLY -->
             <div id="studentFields" class="row g-3 mt-2">
+              <div class="col-md-6">
+                <input
+                  class="form-control"
+                  name="school"
+                  placeholder="School Name"
+                />
+              </div>
               <div class="col-md-6">
                 <select class="form-select" name="board" required>
                   <option value="">Select Board / Exam</option>
@@ -438,7 +421,7 @@
                 </select>
               </div>
               <div class="col-md-6">
-                <select class="form-select" name="grade">
+                <select class="form-select" name="grade" required>
                   <option value="">Grade</option>
                   <option value="8th">8th</option>
                   <option value="9th">9th</option>
@@ -446,6 +429,13 @@
                   <option value="11th">11th</option>
                   <option value="12th">12th</option>
                 </select>
+              </div>
+              <div class="col-md-6">
+                <input
+                  class="form-control"
+                  name="batch"
+                  placeholder="Batch (ex: B1, B2) "
+                />
               </div>
             </div>
 
@@ -457,22 +447,13 @@
                   <option value="Admin">Admin</option>
                 </select>
               </div>
-               <div class="col-md-6">
-                 <input
-                   class="form-control"
-                   name="subjects"
-                   placeholder="Subjects"
-                 />
-               </div>
-               <div class="col-md-6">
-                 <label class="form-label">Profile Picture</label>
-                 <input
-                   class="form-control"
-                   type="file"
-                   name="profile_picture"
-                   accept="image/*"
-                 />
-               </div>
+              <div class="col-md-6">
+                <input
+                  class="form-control"
+                  name="subjects"
+                  placeholder="Subjects"
+                />
+              </div>
               <div class="col-md-6">
                 <select class="form-select" name="board">
                   <option value="">Select Board / Exam</option>
@@ -560,6 +541,26 @@
             </div>
 
             <div class="col-md-6">
+              <input
+                type="tel"
+                class="form-control number-only"
+                name="contact"
+                id="editStudentContact"
+                maxlength="10"
+                minlength="10"
+              />
+              <div class="invalid-feedback" id="editStudentContactError"></div>
+            </div>
+
+            <div class="col-md-6">
+              <input
+                class="form-control"
+                name="school"
+                id="editStudentSchool"
+              />
+            </div>
+
+            <div class="col-md-6">
               <select class="form-select" name="board" id="editStudentBoard">
                 <option value="">Select Board / Exam</option>
                 <option value="State">State</option>
@@ -579,18 +580,6 @@
                 <option value="11th">11th</option>
                 <option value="12th">12th</option>
               </select>
-            </div>
-
-            <div class="col-md-6">
-              <input
-                type="tel"
-                class="form-control number-only"
-                name="contact"
-                id="editStudentContact"
-                maxlength="10"
-                minlength="10"
-              />
-              <div class="invalid-feedback" id="editStudentContactError"></div>
             </div>
 
             <div class="col-md-6">
@@ -617,11 +606,12 @@
       </div>
     </div>
 
-     <div class="modal fade" id="editTeacherModal" tabindex="-1">
-       <div class="modal-dialog modal-lg">
-         <form method="post" id="editTeacherForm" class="modal-content" enctype="multipart/form-data">
-           {% csrf_token %}
-           <div class="modal-header">
+    <!--  EDIT TEACHER MODAL  -->
+    <div class="modal fade" id="editTeacherModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <form method="post" id="editTeacherForm" class="modal-content">
+          {% csrf_token %}
+          <div class="modal-header">
             <h5 class="modal-title">Edit Teacher / Admin</h5>
             <button
               type="button"
@@ -688,26 +678,13 @@
               </select>
             </div>
 
-             <div class="col-md-6">
-               <input
-                 class="form-control"
-                 name="subjects"
-                 id="editTeacherSubjects"
-               />
-             </div>
-             <div class="col-md-6">
-               <label class="form-label">Profile Picture</label>
-               <input
-                 class="form-control"
-                 type="file"
-                 name="profile_picture"
-                 id="editTeacherProfilePicture"
-                 accept="image/*"
-               />
-               <div id="currentProfilePicture" style="margin-top: 0.5rem;">
-                 {% comment %} Will be filled by JS with current image {% endcomment %}
-               </div>
-             </div>
+            <div class="col-md-6">
+              <input
+                class="form-control"
+                name="subjects"
+                id="editTeacherSubjects"
+              />
+            </div>
             <div class="col-md-6">
               <select class="form-select" name="board" id="editTeacherBoard">
                 <option value="">Select Board / Exam</option>
@@ -746,12 +723,8 @@
       </div>
     </div>
 
-     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-     <script src="{% static 'js/user-management.js' %}"></script>
-     <script>
-       // Batch counts data from server: {"Star 01": 5, "Alpha": 3, ...}
-       const batchCounts = {{ batch_counts_json|safe }};
-     </script>
-   </body>
- </html>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{% static 'js/user-management.js' %}"></script>
+  </body>
+</html>

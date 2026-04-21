@@ -24,63 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     });
   });
-
-  // Auto-generate username when batch is entered/changed
-  const batchInput = document.querySelector('input[name="batch"]');
-  if (batchInput) {
-    batchInput.addEventListener('input', generateUsernameFromBatch);
-    batchInput.addEventListener('blur', generateUsernameFromBatch);
-  }
 });
-
-function generateUsernameFromBatch() {
-  const batch = (this ? this.value : '').trim();
-  const usernameInput = document.getElementById('commonUsername');
-  const hint = document.getElementById('usernameHint');
-
-  if (!batch) {
-    if (usernameInput) usernameInput.value = '';
-    if (hint) hint.style.display = 'none';
-    return;
-  }
-
-  // Parse batch to prefix: first letter + first number from second word
-  // Examples: "Star 01" -> "S01", "Alpha" -> "A01", "Beta 2" -> "B02"
-  const parts = batch.split(/\s+/);
-  let prefix = '';
-  if (parts.length >= 1) {
-    const firstWord = parts[0];
-    prefix = firstWord.charAt(0).toUpperCase();
-    if (parts.length >= 2) {
-      // Take first valid number from second word
-      const numMatch = parts[1].match(/\d+/);
-      if (numMatch) {
-        const num = parseInt(numMatch[0], 10);
-        prefix += String(num).padStart(2, '0');
-      } else {
-        prefix += "01";
-      }
-    } else {
-      prefix += "01";
-    }
-  } else {
-    prefix = "X01";
-  }
-
-  const constant = "202628";
-
-  // Get existing count for this batch (from server-side batchCounts)
-  const existingCount = (batchCounts && batchCounts[batch]) ? batchCounts[batch] : 0;
-  const seq = existingCount + 1; // this will be the next number for this new student
-  const seqStr = String(seq).padStart(2, '0');
-
-  const generated = prefix + constant + seqStr;
-
-  if (usernameInput) {
-    usernameInput.value = generated;
-    if (hint) hint.style.display = 'block';
-  }
-}
 
 function openAddUserModal() {
   if (addUserModal) addUserModal.show();
@@ -98,7 +42,7 @@ function openAddUserModal() {
     toggleFields();
     // Clear any error styling
     clearAllAddUserErrors();
-    // Remove dynamically created error divs for board/grade/batch
+    // Remove dynamically created error divs for board/grade
     const boardError = document.getElementById("boardError");
     if (boardError && boardError.parentNode) {
       boardError.parentNode.removeChild(boardError);
@@ -107,20 +51,11 @@ function openAddUserModal() {
     if (gradeError && gradeError.parentNode) {
       gradeError.parentNode.removeChild(gradeError);
     }
-    const batchError = document.getElementById("batchError");
-    if (batchError && batchError.parentNode) {
-      batchError.parentNode.removeChild(batchError);
-    }
-    // Remove is-invalid class from board, grade, batch selects
+    // Remove is-invalid class from board/grade selects
     const boardSelect = form.querySelector('[name="board"]');
     const gradeSelect = form.querySelector('[name="grade"]');
-    const batchSelect = form.querySelector('[name="batch"]');
     if (boardSelect) boardSelect.classList.remove("is-invalid");
     if (gradeSelect) gradeSelect.classList.remove("is-invalid");
-    if (batchSelect) batchSelect.classList.remove("is-invalid");
-    // Hide username hint
-    const usernameHint = document.getElementById('usernameHint');
-    if (usernameHint) usernameHint.style.display = 'none';
   }
 }
 
@@ -134,11 +69,6 @@ function toggleFields() {
   const studentInputs = studentFields.querySelectorAll("input, select, textarea");
   const teacherInputs = teacherFields.querySelectorAll("input, select, textarea");
 
-  // Handle username field readonly state and hint
-  const usernameInput = document.getElementById('commonUsername');
-  const usernameCol = document.querySelector('.field-username-col');
-  const usernameHint = document.getElementById('usernameHint');
-
   if (type === "student") {
     studentFields.style.display = "flex";
     teacherFields.style.display = "none";
@@ -148,19 +78,6 @@ function toggleFields() {
     teacherInputs.forEach((input) => {
       input.disabled = true;
     });
-    // Make username readonly for students
-    if (usernameInput) {
-      usernameInput.readOnly = true;
-      usernameInput.classList.add('readonly-bg');
-      if (usernameCol) usernameCol.style.display = ''; // show
-    }
-    // Clear and regenerate based on batch
-    if (usernameInput) usernameInput.value = '';
-    if (usernameHint) usernameHint.style.display = 'none';
-    const batchInput = document.querySelector('input[name="batch"]');
-    if (batchInput && batchInput.value.trim()) {
-      generateUsernameFromBatch.call(batchInput);
-    }
   } else {
     studentFields.style.display = "none";
     teacherFields.style.display = "flex";
@@ -170,59 +87,6 @@ function toggleFields() {
     teacherInputs.forEach((input) => {
       input.disabled = false;
     });
-    // Make username editable for teachers
-    if (usernameInput) {
-      usernameInput.readOnly = false;
-      usernameInput.classList.remove('readonly-bg');
-      if (usernameHint) usernameHint.style.display = 'none';
-    }
-  }
-
-  // Toggle common batch field visibility and disabled state
-  const commonBatchCol = document.getElementById("commonBatchCol");
-  if (commonBatchCol) {
-    const batchInput = commonBatchCol.querySelector('input[name="batch"]');
-    if (batchInput) {
-      // When student: enabled; when teacher: disabled/hide
-      batchInput.disabled = (type !== "student");
-    }
-    commonBatchCol.style.display = (type === "student") ? "" : "none";
-  }
-
-  // Reorder common fields and adjust password column width
-  const commonRow = document.getElementById("commonFieldsRow");
-  if (!commonRow) return;
-
-  const nameCol = commonRow.querySelector('.field-name-col');
-  const batchCol = commonRow.querySelector('.field-batch-col');
-  const contactCol = commonRow.querySelector('.field-contact-col');
-  const emailCol = commonRow.querySelector('.field-email-col');
-  const genderCol = commonRow.querySelector('.field-gender-col');
-  const passwordCol = commonRow.querySelector('.field-password-col');
-
-  if (type === "student") {
-    // Student mode: natural DOM order (name, batch, username, contact, email, gender, password)
-    [nameCol, batchCol, usernameCol, contactCol, emailCol, genderCol, passwordCol].forEach(col => {
-      if (col) col.style.order = '';
-    });
-    // Ensure password full width
-    if (passwordCol) {
-      passwordCol.classList.remove('col-md-6');
-      passwordCol.classList.add('col-12');
-    }
-  } else {
-    // Teacher mode: order: name, username, email, contact, password, gender
-    if (nameCol) nameCol.style.order = '0';
-    if (usernameCol) usernameCol.style.order = '1';
-    if (emailCol) emailCol.style.order = '2';
-    if (contactCol) contactCol.style.order = '3';
-    if (passwordCol) {
-      passwordCol.style.order = '4';
-      passwordCol.classList.remove('col-12');
-      passwordCol.classList.add('col-md-6');
-    }
-    if (genderCol) genderCol.style.order = '5';
-    if (batchCol) batchCol.style.order = '-1';
   }
 }
 
@@ -268,21 +132,14 @@ function validateAndSubmitAddUser() {
   const usernameInput = form.querySelector('[name="username"]');
   const emailInput = form.querySelector('[name="email"]');
   const contactInput = form.querySelector('[name="contact"]');
-  const batchInput = form.querySelector('[name="batch"]');
 
   // Get the user type to determine which fields to validate
   const userType = document.getElementById("userTypeSelect").value;
 
-   // Clear previous errors
-   clearAllAddUserErrors();
-   // Clear batch error manually (since not in clearAll)
-   if (batchInput) {
-     batchInput.classList.remove("is-invalid");
-     const batchErrorDiv = document.getElementById("batchError");
-     if (batchErrorDiv) batchErrorDiv.textContent = "";
-   }
+  // Clear previous errors
+  clearAllAddUserErrors();
 
-   let isValid = true;
+  let isValid = true;
 
   // Validate name - only alphabets and spaces
   const nameValue = nameInput.value.trim();
@@ -299,28 +156,12 @@ function validateAndSubmitAddUser() {
     isValid = false;
   }
 
-  // Validate batch for students (required)
-  if (userType === "student") {
-    if (!batchInput || !batchInput.value.trim()) {
-      if (batchInput) batchInput.classList.add("is-invalid");
-      const errorDiv = document.getElementById("batchError");
-      if (errorDiv) errorDiv.textContent = "Batch is required for students";
-      isValid = false;
-    }
-  }
-
-  // Validate contact - only 10 digits
-  const contactValue = contactInput.value.trim();
-  const contactRegex = /^\d{10}$/;
-  if (!contactValue) {
-    contactInput.classList.add("is-invalid");
-    const errorDiv = document.getElementById("contactError");
-    if (errorDiv) errorDiv.textContent = "Contact number is required";
-    isValid = false;
-  } else if (!contactRegex.test(contactValue)) {
-    contactInput.classList.add("is-invalid");
-    const errorDiv = document.getElementById("contactError");
-    if (errorDiv) errorDiv.textContent = "Contact must be exactly 10 digits";
+  // Validate username
+  const usernameValue = usernameInput.value.trim();
+  if (!usernameValue) {
+    usernameInput.classList.add("is-invalid");
+    const errorDiv = document.getElementById("usernameError");
+    if (errorDiv) errorDiv.textContent = "Username is required";
     isValid = false;
   }
 
@@ -339,56 +180,66 @@ function validateAndSubmitAddUser() {
     isValid = false;
   }
 
-  // For students, ensure username is auto-generated if batch provided
-  if (userType === "student") {
-    // Auto-generate username from batch if empty
-    if (!usernameInput.value.trim() && batchInput && batchInput.value.trim()) {
-      generateUsernameFromBatch.call(batchInput);
-    }
-  }
-
-  // Validate username (required for both types)
-  const usernameValue = usernameInput.value.trim();
-  if (!usernameValue) {
-    usernameInput.classList.add("is-invalid");
-    const errorDiv = document.getElementById("usernameError");
-    if (errorDiv) errorDiv.textContent = "Username is required";
+  // Validate contact - only 10 digits
+  const contactValue = contactInput.value.trim();
+  const contactRegex = /^\d{10}$/;
+  if (!contactValue) {
+    contactInput.classList.add("is-invalid");
+    const errorDiv = document.getElementById("contactError");
+    if (errorDiv) errorDiv.textContent = "Contact number is required";
+    isValid = false;
+  } else if (!contactRegex.test(contactValue)) {
+    contactInput.classList.add("is-invalid");
+    const errorDiv = document.getElementById("contactError");
+    if (errorDiv) errorDiv.textContent = "Contact must be exactly 10 digits";
     isValid = false;
   }
 
-   // For students, validate board (grade optional)
-   if (userType === "student") {
-     const boardSelect = form.querySelector('[name="board"]');
-     const gradeSelect = form.querySelector('[name="grade"]');
-     const boardErrorId = "boardError";
+  // For students, validate board and grade
+  if (userType === "student") {
+    const boardSelect = form.querySelector('[name="board"]');
+    const gradeSelect = form.querySelector('[name="grade"]');
+    const boardErrorId = "boardError";
+    const gradeErrorId = "gradeError";
 
-     // Create error div for board if it doesn't exist
-     if (boardSelect && !document.getElementById(boardErrorId)) {
-       const errorDiv = document.createElement("div");
-       errorDiv.id = boardErrorId;
-       errorDiv.className = "invalid-feedback";
-       errorDiv.style.display = "block";
-       boardSelect.parentNode.appendChild(errorDiv);
-     }
+    // Create error divs if they don't exist
+    if (boardSelect && !document.getElementById(boardErrorId)) {
+      const errorDiv = document.createElement("div");
+      errorDiv.id = boardErrorId;
+      errorDiv.className = "invalid-feedback";
+      errorDiv.style.display = "block";
+      boardSelect.parentNode.appendChild(errorDiv);
+    }
+    if (gradeSelect && !document.getElementById(gradeErrorId)) {
+      const errorDiv = document.createElement("div");
+      errorDiv.id = gradeErrorId;
+      errorDiv.className = "invalid-feedback";
+      errorDiv.style.display = "block";
+      gradeSelect.parentNode.appendChild(errorDiv);
+    }
 
-     if (boardSelect && !boardSelect.value) {
-       boardSelect.classList.add("is-invalid");
-       const errorDiv = document.getElementById(boardErrorId);
-       if (errorDiv) errorDiv.textContent = "Board is required";
-       isValid = false;
-     } else if (boardSelect) {
-       boardSelect.classList.remove("is-invalid");
-       const errorDiv = document.getElementById(boardErrorId);
-       if (errorDiv) errorDiv.textContent = "";
-     }
+    if (boardSelect && !boardSelect.value) {
+      boardSelect.classList.add("is-invalid");
+      const errorDiv = document.getElementById(boardErrorId);
+      if (errorDiv) errorDiv.textContent = "Board is required";
+      isValid = false;
+    } else if (boardSelect) {
+      boardSelect.classList.remove("is-invalid");
+      const errorDiv = document.getElementById(boardErrorId);
+      if (errorDiv) errorDiv.textContent = "";
+    }
 
-     // Grade is optional - just clear any previous error if present
-     if (gradeSelect) {
-       gradeSelect.classList.remove("is-invalid");
-       const gradeErrorDiv = document.getElementById("gradeError");
-       if (gradeErrorDiv) gradeErrorDiv.textContent = "";
-     }
-   }
+    if (gradeSelect && !gradeSelect.value) {
+      gradeSelect.classList.add("is-invalid");
+      const errorDiv = document.getElementById(gradeErrorId);
+      if (errorDiv) errorDiv.textContent = "Grade is required";
+      isValid = false;
+    } else if (gradeSelect) {
+      gradeSelect.classList.remove("is-invalid");
+      const errorDiv = document.getElementById(gradeErrorId);
+      if (errorDiv) errorDiv.textContent = "";
+    }
+  }
 
   if (!isValid) {
     return;
@@ -462,6 +313,9 @@ if (editStudentModal) {
     document.getElementById("editStudentContact").value =
       button.dataset.contact || "";
 
+    document.getElementById("editStudentSchool").value =
+      button.dataset.school || "";
+
     document.getElementById("editStudentBoard").value =
       button.dataset.board || "";
 
@@ -516,16 +370,5 @@ if (editTeacherModal) {
 
     document.getElementById("editTeacherBatch").value =
       button.dataset.batch || "";
-
-    // Set current profile picture preview
-    const currentPicDiv = document.getElementById("currentProfilePicture");
-    const profilePicUrl = button.dataset.profilePicture;
-    if (currentPicDiv) {
-      if (profilePicUrl) {
-        currentPicDiv.innerHTML = `<img src="${profilePicUrl}" alt="Current Profile" width="60" height="60" style="border-radius: 50%; object-fit: cover; border: 2px solid #ddd;" />`;
-      } else {
-        currentPicDiv.innerHTML = `<span class="text-muted"><i class="bi bi-person-circle" style="font-size: 2rem;"></i></span>`;
-      }
-    }
   });
 }
